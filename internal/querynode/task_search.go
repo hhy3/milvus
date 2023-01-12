@@ -180,42 +180,6 @@ func (s *searchTask) Notify(err error) {
 	}
 }
 
-func (s *searchTask) estimateCPUUsage() {
-	var segmentNum int64
-	if s.DataScope == querypb.DataScope_Streaming {
-		// assume growing segments num is 5
-		partitionIDs := s.iReq.GetPartitionIDs()
-		channel := ""
-		if len(s.req.GetDmlChannels()) > 0 {
-			channel = s.req.GetDmlChannels()[0]
-		}
-		segIDs, err := s.QS.metaReplica.getSegmentIDsByVChannel(partitionIDs, channel, segmentTypeGrowing)
-		if err != nil {
-			log.Error("searchTask estimateCPUUsage", zap.Error(err))
-		}
-		segmentNum = int64(len(segIDs))
-		if segmentNum <= 0 {
-			segmentNum = 1
-		}
-	} else if s.DataScope == querypb.DataScope_Historical {
-		segmentNum = int64(len(s.req.GetSegmentIDs()))
-	}
-	cpu := float64(s.NQ*segmentNum) * Params.QueryNodeCfg.CPURatio.GetAsFloat()
-	s.cpu = int32(cpu)
-	if s.cpu <= 0 {
-		s.cpu = 5
-	} else if s.cpu > s.maxCPU {
-		s.cpu = s.maxCPU
-	}
-}
-
-func (s *searchTask) CPUUsage() int32 {
-	s.cpuOnce.Do(func() {
-		s.estimateCPUUsage()
-	})
-	return s.cpu
-}
-
 // reduceResults reduce search results
 func (s *searchTask) reduceResults(ctx context.Context, searchReq *searchRequest, results []*SearchResult) error {
 	isEmpty := len(results) == 0

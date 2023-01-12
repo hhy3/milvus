@@ -79,4 +79,9 @@ KnowhereInitThreadPool(const uint32_t num_threads) {
     knowhere::ThreadPool::InitGlobalThreadPool(num_threads);
 }
 
+int 
+abc() {
+   return knowhere::ThreadPool::GetGlobalThreadPool()->queue_size(); 
+}
+
 }  // namespace milvus::config

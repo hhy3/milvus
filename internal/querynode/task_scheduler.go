@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
-	"sync/atomic"
 
 	"go.uber.org/zap"
 
@@ -36,8 +35,13 @@ const (
 )
 
 type taskScheduler struct {
-	ctx    context.Context
-	cancel context.CancelFunc
+	cnq      int64
+	cntnq    int64
+	cntnqbig int64
+	c1       int64
+	cnt      int64
+	ctx      context.Context
+	cancel   context.CancelFunc
 
 	// for search and query start
 	unsolvedReadTasks *list.List
@@ -54,12 +58,8 @@ type taskScheduler struct {
 	schedule scheduleReadTaskPolicy
 	// for search and query end
 
-	cpuUsage        int32 // 1200 means 1200% 12 cores
-	readConcurrency int32 // 1200 means 1200% 12 cores
-
 	// for other tasks
-	queue       taskQueue
-	maxCPUUsage int32
+	queue taskQueue
 
 	wg sync.WaitGroup
 }
@@ -83,7 +83,6 @@ func newTaskScheduler(ctx context.Context, tSafeReplica TSafeReplicaInterface) *
 		executeReadTaskChan: make(chan readTask, maxExecuteReadChanLen),
 		notifyChan:          make(chan struct{}, 1),
 		tSafeReplica:        tSafeReplica,
-		maxCPUUsage:         int32(getNumCPU() * 100),
 		schedule:            defaultScheduleReadPolicy,
 	}
 	s.queue = newQueryNodeTaskQueue(s)
@@ -233,7 +232,6 @@ func (s *taskScheduler) scheduleReadTasks() {
 }
 
 func (s *taskScheduler) AddReadTask(ctx context.Context, t readTask) error {
-	t.SetMaxCPUUsage(s.maxCPUUsage)
 	t.OnEnqueue()
 	select {
 	case <-ctx.Done():
@@ -247,28 +245,17 @@ func (s *taskScheduler) AddReadTask(ctx context.Context, t readTask) error {
 }
 
 func (s *taskScheduler) popAndAddToExecute() {
-	readConcurrency := atomic.LoadInt32(&s.readConcurrency)
-	metrics.QueryNodeReadTaskConcurrency.WithLabelValues(fmt.Sprint(paramtable.GetNodeID())).Set(float64(readConcurrency))
 	if s.readyReadTasks.Len() == 0 {
 		return
 	}
-	curUsage := atomic.LoadInt32(&s.cpuUsage)
-	if curUsage < 0 {
-		curUsage = 0
-	}
-	metrics.QueryNodeEstimateCPUUsage.WithLabelValues(fmt.Sprint(paramtable.GetNodeID())).Set(float64(curUsage))
-	targetUsage := s.maxCPUUsage - curUsage
-	if targetUsage <= 0 {
-		return
-	}
-
-	remain := Params.QueryNodeCfg.MaxReadConcurrency.GetAsInt32() - readConcurrency
-	if remain <= 0 {
-		return
-	}
-
-	tasks, deltaUsage := s.schedule(s.readyReadTasks, targetUsage, remain)
-	atomic.AddInt32(&s.cpuUsage, deltaUsage)
+	tasks := s.schedule(s.readyReadTasks)
+	// s.c1 += 1
+	// if len(tasks) == 0 {
+	// 	s.cnt += 1
+	// }
+	// if s.c1%1000 == 0 {
+	// 	fmt.Println("scheduleEmptyRate:", s.c1, s.cnt, float64(s.cnt)/float64(s.c1))
+	// }
 	for _, t := range tasks {
 		s.executeReadTaskChan <- t
 		rateCol.rtCounter.add(t, executeQueueType)
@@ -282,14 +269,24 @@ func (s *taskScheduler) executeReadTasks() {
 
 	executeFunc := func(t readTask) {
 		defer taskWg.Done()
+		tt, ok := t.(*searchTask)
+		if !ok {
+			fmt.Println("AAA")
+		}
+		s.cnq += 1
+		s.cntnq += tt.NQ
+		// fmt.Println(tt.NQ)
+		if tt.NQ == 100 {
+			s.cntnqbig += 1
+		}
+		if s.cnq%1000 == 0 {
+			fmt.Println("avg nq: ", s.cnq, float64(s.cntnq)/float64(s.cnq), float64(s.cntnqbig)/float64(s.cnq))
+		}
 		if t.Timeout() {
 			t.Notify(t.TimeoutError())
 		} else {
 			s.processReadTask(t)
 		}
-		cpu := t.CPUUsage()
-		atomic.AddInt32(&s.readConcurrency, -1)
-		atomic.AddInt32(&s.cpuUsage, -cpu)
 		select {
 		case s.notifyChan <- struct{}{}:
 		default:
@@ -306,7 +303,6 @@ func (s *taskScheduler) executeReadTasks() {
 				rateCol.rtCounter.sub(t, receiveQueueType)
 				pendingTaskLen := len(s.executeReadTaskChan)
 				taskWg.Add(1)
-				atomic.AddInt32(&s.readConcurrency, int32(pendingTaskLen+1))
 				go executeFunc(t)
 
 				for i := 0; i < pendingTaskLen; i++ {

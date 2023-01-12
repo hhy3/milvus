@@ -163,11 +163,6 @@ enum ErrorCode : int {
   ForceDeny = 48,
   RateLimit = 49,
   NodeIDNotMatch = 50,
-  UpsertAutoIDTrue = 51,
-  InsufficientMemoryToLoad = 52,
-  MemoryQuotaExhausted = 53,
-  DiskQuotaExhausted = 54,
-  TimeTickLongDelay = 55,
   DataCoordNA = 100,
   DDRequestRace = 1000,
   ErrorCode_INT_MIN_SENTINEL_DO_NOT_USE_ = std::numeric_limits<::PROTOBUF_NAMESPACE_ID::int32>::min(),
@@ -313,7 +308,6 @@ enum MsgType : int {
   Delete = 401,
   Flush = 402,
   ResendSegmentStats = 403,
-  Upsert = 404,
   Search = 500,
   SearchResult = 501,
   GetIndexState = 502,
@@ -467,7 +461,6 @@ enum ImportState : int {
   ImportFailed = 1,
   ImportStarted = 2,
   ImportPersisted = 5,
-  ImportFlushed = 8,
   ImportCompleted = 6,
   ImportFailedAndCleaned = 7,
   ImportState_INT_MIN_SENTINEL_DO_NOT_USE_ = std::numeric_limits<::PROTOBUF_NAMESPACE_ID::int32>::min(),
@@ -475,7 +468,7 @@ enum ImportState : int {
 };
 bool ImportState_IsValid(int value);
 constexpr ImportState ImportState_MIN = ImportPending;
-constexpr ImportState ImportState_MAX = ImportFlushed;
+constexpr ImportState ImportState_MAX = ImportFailedAndCleaned;
 constexpr int ImportState_ARRAYSIZE = ImportState_MAX + 1;
 
 const ::PROTOBUF_NAMESPACE_ID::EnumDescriptor* ImportState_descriptor();
@@ -544,13 +537,12 @@ enum ObjectPrivilege : int {
   PrivilegeSelectOwnership = 22,
   PrivilegeManageOwnership = 23,
   PrivilegeSelectUser = 24,
-  PrivilegeUpsert = 25,
   ObjectPrivilege_INT_MIN_SENTINEL_DO_NOT_USE_ = std::numeric_limits<::PROTOBUF_NAMESPACE_ID::int32>::min(),
   ObjectPrivilege_INT_MAX_SENTINEL_DO_NOT_USE_ = std::numeric_limits<::PROTOBUF_NAMESPACE_ID::int32>::max()
 };
 bool ObjectPrivilege_IsValid(int value);
 constexpr ObjectPrivilege ObjectPrivilege_MIN = PrivilegeAll;
-constexpr ObjectPrivilege ObjectPrivilege_MAX = PrivilegeUpsert;
+constexpr ObjectPrivilege ObjectPrivilege_MAX = PrivilegeSelectUser;
 constexpr int ObjectPrivilege_ARRAYSIZE = ObjectPrivilege_MAX + 1;
 
 const ::PROTOBUF_NAMESPACE_ID::EnumDescriptor* ObjectPrivilege_descriptor();
@@ -572,13 +564,12 @@ enum StateCode : int {
   Healthy = 1,
   Abnormal = 2,
   StandBy = 3,
-  Stopping = 4,
   StateCode_INT_MIN_SENTINEL_DO_NOT_USE_ = std::numeric_limits<::PROTOBUF_NAMESPACE_ID::int32>::min(),
   StateCode_INT_MAX_SENTINEL_DO_NOT_USE_ = std::numeric_limits<::PROTOBUF_NAMESPACE_ID::int32>::max()
 };
 bool StateCode_IsValid(int value);
 constexpr StateCode StateCode_MIN = Initializing;
-constexpr StateCode StateCode_MAX = Stopping;
+constexpr StateCode StateCode_MAX = StandBy;
 constexpr int StateCode_ARRAYSIZE = StateCode_MAX + 1;
 
 const ::PROTOBUF_NAMESPACE_ID::EnumDescriptor* StateCode_descriptor();
@@ -594,33 +585,6 @@ inline bool StateCode_Parse(
     const std::string& name, StateCode* value) {
   return ::PROTOBUF_NAMESPACE_ID::internal::ParseNamedEnum<StateCode>(
     StateCode_descriptor(), name, value);
-}
-enum LoadState : int {
-  LoadStateNotExist = 0,
-  LoadStateNotLoad = 1,
-  LoadStateLoading = 2,
-  LoadStateLoaded = 3,
-  LoadState_INT_MIN_SENTINEL_DO_NOT_USE_ = std::numeric_limits<::PROTOBUF_NAMESPACE_ID::int32>::min(),
-  LoadState_INT_MAX_SENTINEL_DO_NOT_USE_ = std::numeric_limits<::PROTOBUF_NAMESPACE_ID::int32>::max()
-};
-bool LoadState_IsValid(int value);
-constexpr LoadState LoadState_MIN = LoadStateNotExist;
-constexpr LoadState LoadState_MAX = LoadStateLoaded;
-constexpr int LoadState_ARRAYSIZE = LoadState_MAX + 1;
-
-const ::PROTOBUF_NAMESPACE_ID::EnumDescriptor* LoadState_descriptor();
-template<typename T>
-inline const std::string& LoadState_Name(T enum_t_value) {
-  static_assert(::std::is_same<T, LoadState>::value ||
-    ::std::is_integral<T>::value,
-    "Incorrect type passed to function LoadState_Name.");
-  return ::PROTOBUF_NAMESPACE_ID::internal::NameOfEnum(
-    LoadState_descriptor(), enum_t_value);
-}
-inline bool LoadState_Parse(
-    const std::string& name, LoadState* value) {
-  return ::PROTOBUF_NAMESPACE_ID::internal::ParseNamedEnum<LoadState>(
-    LoadState_descriptor(), name, value);
 }
 // ===================================================================
 
@@ -3209,11 +3173,6 @@ template <> struct is_proto_enum< ::milvus::proto::common::StateCode> : ::std::t
 template <>
 inline const EnumDescriptor* GetEnumDescriptor< ::milvus::proto::common::StateCode>() {
   return ::milvus::proto::common::StateCode_descriptor();
-}
-template <> struct is_proto_enum< ::milvus::proto::common::LoadState> : ::std::true_type {};
-template <>
-inline const EnumDescriptor* GetEnumDescriptor< ::milvus::proto::common::LoadState>() {
-  return ::milvus::proto::common::LoadState_descriptor();
 }
 
 PROTOBUF_NAMESPACE_CLOSE

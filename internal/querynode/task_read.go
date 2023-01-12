@@ -39,11 +39,9 @@ type readTask interface {
 	Ready() (bool, error)
 	Merge(readTask)
 	CanMergeWith(readTask) bool
-	CPUUsage() int32
 	Timeout() bool
 	TimeoutError() error
 
-	SetMaxCPUUsage(int32)
 	SetStep(step TaskStep)
 }
 
@@ -86,10 +84,6 @@ func (b *baseReadTask) OnEnqueue() error {
 	return nil
 }
 
-func (b *baseReadTask) SetMaxCPUUsage(cpu int32) {
-	b.maxCPU = cpu
-}
-
 func (b *baseReadTask) PreExecute(ctx context.Context) error {
 	b.SetStep(TaskStepPreExecute)
 	return nil
@@ -125,10 +119,6 @@ func (b *baseReadTask) CanMergeWith(t readTask) bool {
 }
 
 func (b *baseReadTask) Merge(t readTask) {
-}
-
-func (b *baseReadTask) CPUUsage() int32 {
-	return 0
 }
 
 func (b *baseReadTask) Timeout() bool {

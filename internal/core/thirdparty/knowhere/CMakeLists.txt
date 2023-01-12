@@ -44,8 +44,8 @@ macro(build_knowhere)
     endif ()
 
     externalproject_add(knowhere_ep
-            # GIT_REPOSITORY  "https://github.com/milvus-io/knowhere.git"
-            # GIT_TAG         main
+            GIT_REPOSITORY  "git@github.com:hhy3/knowhere.git"
+            GIT_TAG         abccba
             URL             ${KNOWHERE_SOURCE_URL}
             URL_MD5         ${KNOWHERE_SOURCE_MD5}
             CMAKE_ARGS      ${KNOWHERE_CMAKE_ARGS}

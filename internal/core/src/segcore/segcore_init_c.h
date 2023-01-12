@@ -34,6 +34,8 @@ SegcoreSetSimdType(const char*);
 void
 SegcoreSetThreadPoolNum(const uint32_t num_threads);
 
+int Segcoreabc();
+
 #ifdef __cplusplus
 }
 #endif

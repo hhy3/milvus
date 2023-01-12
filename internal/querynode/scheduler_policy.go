@@ -1,27 +1,54 @@
 package querynode
 
+/*
+#cgo pkg-config: milvus_segcore milvus_common
+
+#include "segcore/collection_c.h"
+#include "segcore/segment_c.h"
+#include "segcore/segcore_init_c.h"
+#include "common/init_c.h"
+
+*/
+import "C"
+
 import (
 	"container/list"
+	"fmt"
 )
 
-type scheduleReadTaskPolicy func(sqTasks *list.List, targetUsage int32, maxNum int32) ([]readTask, int32)
+type scheduleReadTaskPolicy func(sqTasks *list.List) []readTask
 
-func defaultScheduleReadPolicy(sqTasks *list.List, targetUsage int32, maxNum int32) ([]readTask, int32) {
+func defaultScheduleReadPolicy(sqTasks *list.List) []readTask {
+	// for e := sqTasks.Front(); e != nil; e = e.Next() {
+	// 	t, ok := e.Value.(*searchTask)
+	// 	if !ok {
+	// 		fmt.Println("FUCK")
+	// 	}
+	// 	fmt.Print(t.NQ, " ")
+	// }
+	// fmt.Println()
 	var ret []readTask
-	usage := int32(0)
 	var next *list.Element
-	for e := sqTasks.Front(); e != nil && maxNum > 0; e = next {
+	cnt := int64(0)
+	for e := sqTasks.Front(); e != nil; e = next {
 		next = e.Next()
-		t, _ := e.Value.(readTask)
-		tUsage := t.CPUUsage()
-		if usage+tUsage > targetUsage {
-			break
+		t, ok := e.Value.(readTask)
+		if !ok {
+			fmt.Println("FUCK")
 		}
-		usage += tUsage
+		tt, ok := e.Value.(*searchTask)
+		if !ok {
+			fmt.Println("FUCKFUCK")
+		}
+		nq := tt.NQ
+		nt := int64(C.Segcoreabc())
+		cnt += nq
+		if nt+cnt > 100 || (nt+cnt > 50 && nq < 40) {
+			continue
+		}
 		sqTasks.Remove(e)
 		rateCol.rtCounter.sub(t, readyQueueType)
 		ret = append(ret, t)
-		maxNum--
 	}
-	return ret, usage
+	return ret
 }

@@ -55,4 +55,9 @@ SegcoreSetSimdType(const char* value) {
     return ret;
 }
 
+extern "C" int
+Segcoreabc() {
+    return milvus::config::abc();
+}
+
 }  // namespace milvus::segcore
